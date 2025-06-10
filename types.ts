@@ -20,6 +20,8 @@ export interface UserProfile {
     aiCoachPrompts?: boolean; // New - for proactive AI engagement suggestions
     scriptureSuggestions?: boolean; // New - for daily/contextual verse suggestions
   };
+  readChapters?: string[]; // Array of "Book Chapter", e.g., ["Genesis 1", "John 3"]
+  savedInterpretations?: Interpretation[];
 }
 
 export enum BibleKnowledgeLevel {
@@ -163,4 +165,20 @@ export interface BibleBook {
 export interface Testament {
   name: string;
   books: BibleBook[];
+}
+
+export enum BibleStudyIntensity {
+  LIGHT = "Light",
+  MODERATE = "Moderate",
+  DEEP_DIVE = "Deep Dive",
+}
+
+export interface AIWeeklyStudyPlan {
+  title: string;
+  dailyPlan: Array<{
+    day: string; // e.g., "Monday"
+    focus: string; // Main theme or instruction for the day
+    passage?: string; // Optional specific passage
+    tasks?: string[]; // Optional list of tasks/questions
+  }>;
 }

@@ -14,11 +14,10 @@ import DiscipleshipPlanner from './components/DiscipleshipPlanner';
 import SubscriptionPage from './components/SubscriptionPage';
 import ProfileSettingsPage from './components/ProfileSettingsPage';
 import MeditationPage from './components/MeditationPage'; 
-import GuidanceHubPage from './components/GuidanceHubPage';
-import GrowthInfographic from './components/GrowthInfographic'; // New
-import FloatingCoachWidget from './components/FloatingCoachWidget'; // New
-import { UserProfile, BibleKnowledgeLevel } from './types';
-import { HomeIcon, BookOpenIcon, ChatBubbleLeftEllipsisIcon, UsersIcon, SparklesIcon, ArrowPathIcon, CalendarDaysIcon, CreditCardIcon, Cog6ToothIcon, ShieldCheckIcon, IconProps, PencilSquareIcon, FaceSmileIcon, QuestionMarkCircleIcon, LightBulbIcon, ChartBarIcon } from './components/common/IconComponents'; 
+import LibraryPage from './components/LibraryPage'; // New
+import FloatingCoachWidget from './components/FloatingCoachWidget';
+import { UserProfile, BibleKnowledgeLevel, Interpretation } from './types';
+import { HomeIcon, BookOpenIcon, ChatBubbleLeftEllipsisIcon, UsersIcon, SparklesIcon, ArrowPathIcon, CalendarDaysIcon, CreditCardIcon, Cog6ToothIcon, ShieldCheckIcon, IconProps, PencilSquareIcon, FaceSmileIcon, QuestionMarkCircleIcon, LightBulbIcon, ChartBarIcon, AcademicCapIcon } from './components/common/IconComponents'; 
 import { PREMIUM_TIER_NAME, SUBSCRIPTION_PRICE, DEFAULT_NOTIFICATION_SETTINGS } from './constants';
 
 const App: React.FC = () => {
@@ -48,7 +47,9 @@ const App: React.FC = () => {
           notificationSettings: {
             ...DEFAULT_NOTIFICATION_SETTINGS, 
             ...(parsedProfile.notificationSettings || {}), 
-          }
+          },
+          readChapters: parsedProfile.readChapters || [],
+          savedInterpretations: parsedProfile.savedInterpretations || [],
         });
       }
     }
@@ -65,6 +66,8 @@ const App: React.FC = () => {
       aiFeedbackLevel: profile.aiFeedbackLevel || 'Detailed',
       aiCheckInFrequency: profile.aiCheckInFrequency || 'Daily',
       notificationSettings: { ...DEFAULT_NOTIFICATION_SETTINGS }, 
+      readChapters: [],
+      savedInterpretations: [],
     };
     setUserProfile(initialProfile);
     localStorage.setItem('userProfile_growthpath', JSON.stringify(initialProfile));
@@ -94,7 +97,10 @@ const App: React.FC = () => {
         notificationSettings: {
           ...(prevProfile.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS),
           ...(updatedSettings.notificationSettings || {}),
-        }
+        },
+        // Ensure arrays are handled correctly if passed in updatedSettings
+        readChapters: updatedSettings.readChapters || prevProfile.readChapters || [],
+        savedInterpretations: updatedSettings.savedInterpretations || prevProfile.savedInterpretations || [],
       };
       localStorage.setItem('userProfile_growthpath', JSON.stringify(newProfile));
       return newProfile;
@@ -105,7 +111,7 @@ const App: React.FC = () => {
     { name: 'Home', path: '/', icon: <HomeIcon /> },
     { name: 'Interpretations', path: '/interpretations', icon: <BookOpenIcon /> },
     { name: 'Coach', path: '/coach', icon: <ChatBubbleLeftEllipsisIcon /> },
-    { name: 'Guidance Hub', path: '/guidance-hub', icon: <LightBulbIcon /> },
+    { name: 'Library', path: '/library', icon: <AcademicCapIcon /> }, // New
     { name: 'Planner', path: '/planner', icon: <CalendarDaysIcon /> },
     { name: 'Prayer & Journal', path: '/prayer-journal', icon: <PencilSquareIcon /> },
     { name: 'Meditation', path: '/meditation', icon: <FaceSmileIcon /> },
@@ -120,7 +126,7 @@ const App: React.FC = () => {
 
   const bottomNavItems = [
     { name: 'Home', path: '/', icon: <HomeIcon /> },
-    { name: 'Guidance', path: '/guidance-hub', icon: <LightBulbIcon /> },
+    { name: 'Library', path: '/library', icon: <AcademicCapIcon /> }, // New
     { name: 'Prayer', path: '/prayer-journal', icon: <PencilSquareIcon /> },
     { name: 'Coach', path: '/coach', icon: <ChatBubbleLeftEllipsisIcon /> },
     { name: 'Settings', path: '/settings', icon: <Cog6ToothIcon /> },
@@ -136,9 +142,23 @@ const App: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-12">
         <Routes>
           <Route path="/" element={<Dashboard userProfile={userProfile} />} />
-          <Route path="/interpretations" element={<InterpretationExplorer />} />
+          <Route 
+            path="/interpretations" 
+            element={
+              <InterpretationExplorer 
+                userProfile={userProfile} 
+                onUpdateProfile={updateUserProfileSettings} 
+              />} 
+          />
           <Route path="/coach" element={<PersonalCoach userProfile={userProfile} />} />
-          <Route path="/guidance-hub" element={<GuidanceHubPage userProfile={userProfile} />} />
+          <Route 
+            path="/library" 
+            element={
+              <LibraryPage 
+                userProfile={userProfile} 
+                onUpdateProfile={updateUserProfileSettings} 
+              />} 
+          /> {/* New */}
           <Route path="/planner" element={<DiscipleshipPlanner userProfile={userProfile} />} />
           <Route path="/prayer-journal" element={<PrayerJournal userProfile={userProfile} />} />
           <Route path="/meditation" element={<MeditationPage userProfile={userProfile} />} />
@@ -161,43 +181,24 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ userProfile }) => {
   const missionStatement = "GrowthPath is your intelligent, compassionate spiritual companion — designed to guide Christians from curiosity to deep discipleship using personalized, contextual Bible engagement.";
-  const quoteText = "The LORD is my shepherd; I shall not want.";
-  const quoteReference = "Psalm 23:1";
-
+  
   return (
     <div className="space-y-12"> {/* Increased overall spacing */}
       <div className="bg-gradient-to-br from-brand-primary/5 via-brand-background to-brand-background p-6 md:p-10 rounded-xl shadow-xl text-center mb-10">
-        <h1 className="text-4xl md:text-5xl font-display font-bold text-brand-primary mb-4">
-          Welcome to GrowthPath{userProfile && userProfile.name ? `, ${userProfile.name}` : ''}!
-        </h1>
-        <p className="text-lg text-brand-text-primary/90 mt-3 max-w-3xl mx-auto">
+        {userProfile && userProfile.name && (
+          <p className="text-2xl md:text-3xl font-display text-brand-primary mb-4">
+            Hello, {userProfile.name}!
+          </p>
+        )}
+        <p className={`text-lg text-brand-text-primary/90 max-w-3xl mx-auto ${userProfile && userProfile.name ? 'mt-3' : ''}`}>
           {missionStatement}
         </p>
-        
-        {/* Impressive Quote Section */}
-        <div className="mt-8 pt-6 border-t-2 border-brand-accent/30 max-w-2xl mx-auto">
-          <p className="text-3xl md:text-4xl font-display text-brand-accent italic leading-tight">
-            "{quoteText}"
-          </p>
-          <p className="text-lg text-brand-text-secondary/90 mt-3 font-semibold">
-            — {quoteReference}
-          </p>
-        </div>
       </div>
       
-      {userProfile?.spiritualGoal && (
-        <div className="p-4 bg-brand-primary/10 border border-brand-primary/20 rounded-lg shadow">
-          <h2 className="text-lg font-semibold text-brand-primary mb-1">Your Current Focus:</h2>
-          <p className="text-brand-text-secondary">{userProfile.spiritualGoal}</p>
-        </div>
-      )}
-
-      <GrowthInfographic userProfile={userProfile} />
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <DashboardCard title="Explore Interpretations" description="Dive into biblical wisdom across traditions." link="/interpretations" icon={<BookOpenIcon />} />
+        <DashboardCard title="Explore Wisdom" description="Dive into biblical wisdom across traditions." link="/interpretations" icon={<BookOpenIcon />} />
         <DashboardCard title="AI Discipleship Coach" description="Get personalized guidance and adaptive study sessions." link="/coach" icon={<ChatBubbleLeftEllipsisIcon />} />
-        <DashboardCard title="Guidance Hub" description="AI insights for your life situations and questions." link="/guidance-hub" icon={<LightBulbIcon />} />
+        <DashboardCard title="My Library" description="Access your read chapters, saved notes, and study progress." link="/library" icon={<AcademicCapIcon />} />
         <DashboardCard title="Discipleship Planner" description="Plan your week with AI-assisted spiritual activities." link="/planner" icon={<CalendarDaysIcon />} />
         <DashboardCard title="Prayer & Journal" description="Deepen your prayer life and reflect on your journey." link="/prayer-journal" icon={<PencilSquareIcon />} />
         <DashboardCard title="Daily Meditation" description="Start your day with guided scripture meditation." link="/meditation" icon={<FaceSmileIcon />} />

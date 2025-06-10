@@ -1,5 +1,4 @@
-
-import { BibleKnowledgeLevel, ChristianTradition, OnboardingQuestion, ActivityType, BibleBook, Testament } from './types';
+import { BibleKnowledgeLevel, ChristianTradition, OnboardingQuestion, ActivityType, BibleBook, Testament, BibleStudyIntensity } from './types';
 import { SAMPLE_THEOLOGIANS } from './services/MockDb'; 
 
 export const APP_NAME = "GrowthPath";
@@ -129,6 +128,13 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   'Community Group',
   'Rest & Reflection'
 ];
+
+export const BIBLE_STUDY_INTENSITIES: { value: BibleStudyIntensity; label: string }[] = [
+  { value: BibleStudyIntensity.LIGHT, label: 'Light (Approx. 15-30 mins/session, 2-3 times/week)' },
+  { value: BibleStudyIntensity.MODERATE, label: 'Moderate (Approx. 30-45 mins/session, 3-5 times/week)' },
+  { value: BibleStudyIntensity.DEEP_DIVE, label: 'Deep Dive (Approx. 45-60+ mins/session, 5-7 times/week)' },
+];
+
 
 // --- Profile & Settings Constants ---
 export const BIBLE_TRANSLATIONS: string[] = ["NIV", "ESV", "KJV", "NASB", "NLT", "Message", "Other"];

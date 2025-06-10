@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Interpretation, Theologian } from '../types';
+import { Interpretation, Theologian, UserProfile } from '../types';
 import { getInterpretationsForPassage, getSynthesizedInterpretation, getBibleChapterText, getContextualizedScripture } from '../services/GeminiService';
 import Card from './common/Card';
 import LoadingSpinner from './common/LoadingSpinner';
@@ -10,15 +10,21 @@ import Button from './common/Button';
 import TextArea from './common/TextArea';
 import Modal from './common/Modal';
 import { SAMPLE_THEOLOGIANS } from '../services/MockDb'; 
-import { LightBulbIcon, BookOpenIcon, SparklesIcon, XMarkIcon } from './common/IconComponents';
+import { LightBulbIcon, BookOpenIcon, SparklesIcon, XMarkIcon, CheckCircleIcon, BookmarkIcon } from './common/IconComponents';
 import { BIBLE_STRUCTURE, getBooksForTestament, getChaptersForBook, ALL_CHRISTIAN_TRADITIONS } from '../constants';
+import { triggerHapticFeedback } from '../utils/haptics';
 
 interface VerseContent {
   ref: string; // e.g., "John 1:1"
   text: string;
 }
 
-const InterpretationExplorer: React.FC = () => {
+interface InterpretationExplorerProps {
+  userProfile: UserProfile | null;
+  onUpdateProfile: (updatedSettings: Partial<UserProfile>) => void;
+}
+
+const InterpretationExplorer: React.FC<InterpretationExplorerProps> = ({ userProfile, onUpdateProfile }) => {
   const [selectedTestament, setSelectedTestament] = useState<string>('New Testament');
   const [selectedBook, setSelectedBook] = useState<string>('John');
   const [selectedChapter, setSelectedChapter] = useState<string>('1');
@@ -195,6 +201,29 @@ const InterpretationExplorer: React.FC = () => {
     setVerseModalError(null);
   };
 
+  const handleMarkChapterAsRead = () => {
+    if (!userProfile || !currentChapterRef) return;
+    triggerHapticFeedback('light');
+    const currentReadChapters = userProfile.readChapters || [];
+    if (!currentReadChapters.includes(currentChapterRef)) {
+      onUpdateProfile({ readChapters: [...currentReadChapters, currentChapterRef] });
+    }
+  };
+
+  const isChapterRead = userProfile?.readChapters?.includes(currentChapterRef) || false;
+
+  const handleSaveInterpretation = (interpretation: Interpretation) => {
+    if (!userProfile) return;
+    triggerHapticFeedback('light');
+    const currentSavedInterpretations = userProfile.savedInterpretations || [];
+    if (!currentSavedInterpretations.find(interp => interp.id === interpretation.id)) {
+        onUpdateProfile({ savedInterpretations: [...currentSavedInterpretations, interpretation] });
+    }
+  };
+
+  const isInterpretationSaved = (interpretationId: string): boolean => {
+    return userProfile?.savedInterpretations?.some(interp => interp.id === interpretationId) || false;
+  };
 
   const handleGetContextualizedScripture = async () => {
     if (!currentChapterRef || !lifeSituationInput.trim()) {
@@ -267,7 +296,19 @@ const InterpretationExplorer: React.FC = () => {
       )}
 
       {!isLoadingChapterText && chapterVerses && chapterVerses.length > 0 && !error && (
-        <Card title={`Scripture: ${currentChapterRef}`} className="bg-brand-surface" titleClassName="text-brand-primary font-display text-2xl">
+        <Card title={`Scripture: ${currentChapterRef}`} className="bg-brand-surface" titleClassName="text-brand-primary font-display text-2xl"
+          actions={
+            <Button 
+              onClick={handleMarkChapterAsRead} 
+              disabled={isChapterRead} 
+              variant={isChapterRead ? "ghost" : "secondary"}
+              size="sm"
+              leftIcon={isChapterRead ? <CheckCircleIcon className="w-4 h-4 text-green-600" /> : <CheckCircleIcon className="w-4 h-4" />}
+            >
+              {isChapterRead ? "Chapter Read" : "Mark as Read"}
+            </Button>
+          }
+        >
           <div className="space-y-1 max-h-[60vh] overflow-y-auto p-2 rounded-md border border-brand-primary/10 bg-brand-background">
             {chapterVerses.map((verseLine, index) => {
               const verseData = parseVerseLine(verseLine);
@@ -388,9 +429,22 @@ const InterpretationExplorer: React.FC = () => {
                         const displayName = interp.theologianName || theologianDetails?.name || 'Unknown Theologian';
                         const displayTradition = interp.theologianTradition || theologianDetails?.tradition || 'General Interpretation';
                         const displayEra = theologianDetails?.era || '';
+                        const alreadySaved = isInterpretationSaved(interp.id);
 
                         return (
-                          <Card key={interp.id} title={displayName} className="bg-brand-surface shadow-sm hover:shadow-md transition-shadow">
+                          <Card key={interp.id} title={displayName} className="bg-brand-surface shadow-sm hover:shadow-md transition-shadow"
+                            actions={
+                              <Button 
+                                size="sm" 
+                                variant={alreadySaved ? "ghost" : "outline"}
+                                onClick={() => handleSaveInterpretation(interp)}
+                                disabled={alreadySaved}
+                                leftIcon={alreadySaved ? <CheckCircleIcon className="w-4 h-4 text-green-600" /> : <BookmarkIcon className="w-4 h-4" />}
+                              >
+                                {alreadySaved ? "Saved" : "Save"}
+                              </Button>
+                            }
+                          >
                             <p className="text-xs text-brand-text-secondary mb-1">
                               {displayEra ? `${displayEra} - ` : ''}{displayTradition}
                             </p>

@@ -4,7 +4,7 @@
 // The prompt specifies using process.env.API_KEY directly.
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai"; // Using correct import
-import { Interpretation, Theologian, ChatMessage, UserProfile, ChristianTradition, ActivityType, PlannedActivity, JournalEntry, CommunityGroup } from '../types';
+import { Interpretation, Theologian, ChatMessage, UserProfile, ChristianTradition, ActivityType, PlannedActivity, JournalEntry, CommunityGroup, BibleStudyIntensity, AIWeeklyStudyPlan } from '../types';
 import { SAMPLE_THEOLOGIANS, SAMPLE_INTERPRETATIONS, getCoachResponseSample, SAMPLE_COMMUNITY_GROUPS, SAMPLE_BIBLE_CHAPTER_VERSES } from './MockDb';
 import { GEMINI_TEXT_MODEL, API_DELAY, TRADITION_THEOLOGIAN_LISTS } from '../constants';
 
@@ -79,7 +79,7 @@ export const getInterpretationsForPassage = async (passageRef: string, tradition
         contents: prompt,
       });
       generatedInterpretations.push({
-        id: `ai-${tradition.replace(/\s+/g, '-')}-${passageRef.replace(/[:\s]/g, '_')}-${Date.now()}`, 
+        id: `ai-${tradition.replace(/\s+/g, '-')}-${passageRef.replace(/[:\s]/g, '_')}-${Date.now()}${Math.random().toString(36).substring(2, 5)}`, 
         passage: passageRef,
         summary: response.text,
         theologianName: randomTheologianName, 
@@ -96,14 +96,14 @@ export const getInterpretationsForPassage = async (passageRef: string, tradition
         const theologian = SAMPLE_THEOLOGIANS.find(t => t.id === sampleForPassage.theologianId);
         generatedInterpretations.push({
             ...sampleForPassage,
-            id: `sample-fallback-${sampleForPassage.id}-${Date.now()}`,
+            id: `sample-fallback-${sampleForPassage.id}-${Date.now()}${Math.random().toString(36).substring(2, 5)}`,
             summary: `(API Error Fallback) ${sampleForPassage.summary}`,
             theologianName: theologian?.name || 'Sample Theologian',
             theologianTradition: theologian?.tradition || tradition,
         });
       } else {
          generatedInterpretations.push({
-            id: `ai-error-${tradition.replace(/\s+/g, '-')}-${passageRef.replace(/[:\s]/g, '_')}-${Date.now()}`,
+            id: `ai-error-${tradition.replace(/\s+/g, '-')}-${passageRef.replace(/[:\s]/g, '_')}-${Date.now()}${Math.random().toString(36).substring(2, 5)}`,
             passage: passageRef,
             summary: `Could not fetch AI interpretation for ${randomTheologianName} (${tradition}) for ${passageRef}. This theologian might emphasize themes of [theme_A] and [theme_B].`,
             theologianName: randomTheologianName,
@@ -556,9 +556,9 @@ export const getScripturalWisdomForSituation = async (
   }
 
   let prompt = `You are an empathetic AI spiritual guide. A user is facing the following situation: "${situation}".
-Their spiritual goal is: "${userProfile?.spiritualGoal || 'general spiritual growth'}".
-Their Bible knowledge is: "${userProfile?.bibleKnowledge || 'any level'}".
-Their preferred tradition is: "${userProfile?.preferredTradition || 'any Christian tradition'}".
+User's spiritual goal: "${userProfile?.spiritualGoal || 'general spiritual growth'}".
+User's Bible knowledge: "${userProfile?.bibleKnowledge || 'any level'}".
+User's preferred tradition: "${userProfile?.preferredTradition || 'any Christian tradition'}".
 
 Based on their situation and Christian spiritual principles, provide:
 1.  A concise, encouraging title for this guidance (e.g., 'Finding Peace in Uncertainty', 'Scripture for Strength when Feeling Overwhelmed').
@@ -675,5 +675,90 @@ If no groups seem like a strong match, return an empty array. Do not suggest gro
         });
     }
     return sampleSuggestions;
+  }
+};
+
+export const generateWeeklyBibleStudyPlan = async (
+  intensity: BibleStudyIntensity,
+  userProfile: UserProfile | null
+): Promise<AIWeeklyStudyPlan> => {
+  if (!ai) {
+    console.warn("GeminiService: AI not initialized for weekly Bible study plan. Using sample plan.");
+    const sampleFocus = userProfile?.spiritualGoal || "understanding God's love";
+    return Promise.resolve({
+      title: `Sample Weekly Plan: ${intensity} Focus on ${sampleFocus}`,
+      dailyPlan: [
+        { day: 'Monday', focus: `Introduction to ${sampleFocus}`, passage: '1 John 4:7-12', tasks: ['Read passage.', 'Journal one thought.'] },
+        { day: 'Wednesday', focus: `Examples of ${sampleFocus} in scripture`, passage: 'Luke 15:11-32', tasks: ['Reflect on the parable.', 'How does this apply to you?'] },
+        { day: 'Friday', focus: `Living out ${sampleFocus}`, passage: 'Ephesians 5:1-2', tasks: ['Identify one way to show this today.'] },
+        // Add more days based on intensity for a real sample
+      ].slice(0, intensity === BibleStudyIntensity.LIGHT ? 3 : intensity === BibleStudyIntensity.MODERATE ? 5 : 7)
+    });
+  }
+
+  console.log(`GeminiService: Generating AI weekly Bible study plan with intensity: ${intensity}`);
+
+  let intensityDescription = "";
+  switch (intensity) {
+    case BibleStudyIntensity.LIGHT:
+      intensityDescription = "A light plan with 2-3 study sessions, each about 15-30 minutes. Focus on short passages and simple reflections.";
+      break;
+    case BibleStudyIntensity.MODERATE:
+      intensityDescription = "A moderate plan with 3-5 study sessions, each about 30-45 minutes. Include chapter readings and a few reflective questions.";
+      break;
+    case BibleStudyIntensity.DEEP_DIVE:
+      intensityDescription = "A deep dive plan with 5-7 study sessions, each about 45-60+ minutes. Suggest in-depth study of a book/theme, cross-referencing, or considering theological concepts related to passages.";
+      break;
+  }
+
+  const prompt = `You are an AI Discipleship Coach helping a user plan their Bible study for the next week.
+User Profile:
+  Spiritual Goal: "${userProfile?.spiritualGoal || 'general spiritual growth'}"
+  Bible Knowledge: ${userProfile?.bibleKnowledge || 'any level'}
+  Preferred Tradition: ${userProfile?.preferredTradition || 'any Christian tradition'}
+  Spiritual Interests: "${userProfile?.spiritualInterests || 'general Christian topics'}"
+
+Bible Study Plan Intensity: ${intensity} (${intensityDescription})
+
+Create a 7-day Bible study plan. For each day (Monday to Sunday), provide:
+- "day": The day of the week (e.g., "Monday").
+- "focus": A brief description of the study focus for that day (e.g., "Exploring the theme of forgiveness").
+- "passage": A specific Bible passage (e.g., "Matthew 18:21-35"). This is optional if the focus is more thematic or preparatory.
+- "tasks": An array of 1-3 brief, actionable tasks or reflection questions related to the focus and passage (e.g., ["Read the passage carefully.", "What does this passage teach about God's character?", "How can you apply this learning today?"]). This is optional.
+
+The overall plan should have a cohesive "title" that reflects the week's theme or the user's goal.
+Tailor the plan considering the user's profile and the selected intensity. If the intensity is Light, some days might be "Rest & Reflection" or have very minimal tasks.
+Ensure the response is ONLY a valid JSON object with keys "title" (string) and "dailyPlan" (array of objects as described above).
+
+Example (partial for Moderate intensity):
+{
+  "title": "Week of Deepening Understanding of Grace",
+  "dailyPlan": [
+    { "day": "Monday", "focus": "Introduction to Grace", "passage": "Ephesians 2:8-9", "tasks": ["Read Ephesians 2:1-10.", "Define grace in your own words.", "Thank God for His grace."] },
+    { "day": "Tuesday", "focus": "Grace in the Old Testament", "passage": "Exodus 34:6-7", "tasks": ["How is God's grace shown here?", "Compare with New Testament concepts of grace."] },
+    // ... more days
+  ]
+}`;
+
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: GEMINI_TEXT_MODEL,
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+
+    let jsonStr = response.text.trim();
+    const fenceRegex = /^\`\`\`(\w*)?\s*\n?(.*?)\n?\s*\`\`\`$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[2]) {
+      jsonStr = match[2].trim();
+    }
+    
+    const parsedData = JSON.parse(jsonStr) as AIWeeklyStudyPlan;
+    return parsedData;
+
+  } catch (error) {
+    console.error("Gemini API error or JSON parsing error during generateWeeklyBibleStudyPlan:", error);
+    throw new Error("Failed to generate weekly Bible study plan from AI.");
   }
 };
